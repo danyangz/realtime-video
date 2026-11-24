@@ -1,0 +1,9 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+websockets>=14
+httpx>=0.27
+python-dotenv>=1.0
+zhconv>=1.4
+# dev / scripts
+pytest>=8
+numpy>=1.26

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小星 · 实时视频聊天</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <main class="stage" id="stage" data-state="idle">
+      <div id="avatar" class="avatar" title="说话时点一下画面可以打断"></div>
+
+      <div class="topline">
+        <div class="badge"><span class="dot" id="dot" data-state="idle"></span><b>小星</b><span id="status">未通话</span></div>
+        <div class="badge timer" id="timer" hidden>00:00</div>
+      </div>
+
+      <div class="pip" id="pip" hidden>
+        <video id="selfview" autoplay muted playsinline></video>
+        <span>仅本地预览，小星看不到</span>
+      </div>
+
+      <div class="captions" aria-live="polite">
+        <p class="cap user" id="capUser"></p>
+        <p class="cap bot" id="capBot"></p>
+      </div>
+
+      <div class="controls">
+        <button id="micBtn" class="ctl" disabled aria-pressed="false">
+          <svg class="on" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+          <svg class="off" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M4 4l16 16"/></svg>
+          <span>静音</span>
+        </button>
+        <button id="callBtn" class="ctl call">
+          <svg viewBox="0 0 24 24"><path d="M6.6 3.5h2.6l1.6 4.4-2 1.3a11.5 11.5 0 0 0 6 6l1.3-2 4.4 1.6v2.6a2 2 0 0 1-2.1 2A15.6 15.6 0 0 1 4.6 5.6a2 2 0 0 1 2-2.1z"/></svg>
+          <span id="callLabel">开始通话</span>
+        </button>
+        <button id="camBtn" class="ctl" aria-pressed="false">
+          <svg class="on" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21.5 7v10l-6-3.5z"/></svg>
+          <svg class="off" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21.5 7v10l-6-3.5zM3 3l18 18"/></svg>
+          <span>摄像头</span>
+        </button>
+      </div>
+    </main>
+
+    <aside class="side">
+      <header>
+        <h1>对话记录</h1>
+        <button id="resetBtn" class="link" type="button">清空</button>
+      </header>
+      <div class="log" id="log">
+        <p class="empty">点“开始通话”，然后直接说话。<br>小星说话时，你随时可以开口打断她。<br>建议戴耳机，避免她听到自己的声音。</p>
+      </div>
+      <form id="textForm" class="text-form" autocomplete="off">
+        <input id="textInput" placeholder="也可以打字聊天…" maxlength="500">
+        <button type="submit">发送</button>
+      </form>
+      <footer>
+        <div id="metrics" class="metrics"></div>
+        <div id="models" class="models"></div>
+      </footer>
+    </aside>
+  </div>
+  <div class="toast" id="toast" role="alert" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
