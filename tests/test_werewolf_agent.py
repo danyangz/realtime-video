@@ -85,3 +85,40 @@ def test_ai_players_can_play_a_whole_game():
     villager = next(p for p in players if p.role.value == "villager")
     from apps.werewolf.prompts import render_log
     assert "狼人夜聊" not in render_log(game, villager)
+
+
+def test_saved_night_target_only_reaches_wolves_and_witch():
+    """After a night where the witch saves the wolves' target, nobody else can learn who it was."""
+    from apps.werewolf.prompts import user_message
+    from apps.werewolf.scripted import ScriptedController
+
+    class SaveFirstNight(ScriptedController):
+        async def choose(self, game, player, kind, prompt, options, allow_skip):
+            if kind == "witch_save":
+                return 1
+            return await super().choose(game, player, kind, prompt, options, allow_skip)
+
+    async def one(seed):
+        rng = random.Random(seed)
+        players = deal([f"P{i}" for i in range(1, 13)], None, None, rng)
+        bot = SaveFirstNight(rng)
+        game = Game(players, {p.seat: bot for p in players}, rng=rng)
+        game.day = 1
+        await game.night()
+        await game.daytime()
+        return game
+
+    checked = 0
+    for seed in range(40):
+        game = asyncio.run(one(seed))
+        if not any("你用解药救了" in e.text for e in game.events):
+            continue  # the wolves picked the witch herself, who may not self-save
+        checked += 1
+        for p in game.players.values():
+            prompt = user_message(game, p, "test")
+            assert prompt.count("你的身份是") <= 1  # never anyone else's role
+            if p.role.is_wolf or p.role.value == "witch":
+                continue
+            for secret in ("狼人选择", "今晚被狼人刀", "解药", "狼人夜聊"):
+                assert secret not in prompt, (seed, p.label, secret)
+    assert checked >= 30

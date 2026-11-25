@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import random
 import sys
 import time
@@ -23,10 +22,10 @@ from apps.werewolf.agent import AIController  # noqa: E402
 from apps.werewolf.config import WerewolfSettings  # noqa: E402
 from apps.werewolf.engine import SPEECH_KINDS, Game, Hooks, deal  # noqa: E402
 from apps.werewolf.personas import CASTS, DEFAULT_CAST  # noqa: E402
+from apps.werewolf.record import save_game  # noqa: E402
 from apps.werewolf.scripted import ScriptedController  # noqa: E402
 from core.services import Services  # noqa: E402
 
-OUT = Path(__file__).resolve().parent.parent / "out" / "werewolf"
 
 
 class Console(Hooks):
@@ -97,15 +96,7 @@ async def main() -> None:
     if hooks.speech_times:
         avg = sum(hooks.speech_times) / len(hooks.speech_times)
         print(f"发言 {len(hooks.speech_times)} 次，平均生成 {avg:.1f}s")
-    OUT.mkdir(parents=True, exist_ok=True)
-    path = OUT / time.strftime("game-%Y%m%d-%H%M%S.json")
-    path.write_text(json.dumps({
-        "winner": winner,
-        "players": [{"seat": p.seat, "name": p.name, "role": p.role.value, "model": models[p.seat]} for p in players],
-        "events": [{"kind": e.kind, "text": e.text, "day": e.day, "phase": e.phase,
-                    "visible_to": sorted(e.visible_to) if e.visible_to else None} for e in game.events],
-        "thoughts": game.thoughts,
-    }, ensure_ascii=False, indent=1))
+    path = save_game(game, models, cast=args.cast, source="werewolf_sim")
     print(f"完整记录（含每个 AI 的思考）：{path}")
 
 

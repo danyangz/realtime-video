@@ -41,4 +41,6 @@ class WerewolfSettings:
     # Scripted bots instead of LLMs: for UI work and demos without API calls.
     fake_ai: bool = field(default_factory=lambda: env_bool("WEREWOLF_FAKE_AI", False))
     fake_delay_s: float = 0.05  # scripted bots "type" this slowly
+    # Keep a full record of every game in out/werewolf/ (events, who saw what, AI reasoning).
+    save_games: bool = field(default_factory=lambda: env_bool("WEREWOLF_SAVE_GAMES", True))
     text_pause_s: float = 0.6  # pause between speakers when voice is off

@@ -40,7 +40,7 @@ def play(role, respond):
         async def send_bytes(b):
             raise AssertionError("no audio expected")
 
-        session = WerewolfSession(StubServices(), WerewolfSettings(fake_ai=True, fake_delay_s=0, text_pause_s=0), send_text, send_bytes)
+        session = WerewolfSession(StubServices(), WerewolfSettings(fake_ai=True, fake_delay_s=0, text_pause_s=0, save_games=False), send_text, send_bytes)
         await session.hello()
         await session.handle({"type": "start", "role": role, "name": "测试员", "tts": True})
         await asyncio.wait_for(done.wait(), 60)

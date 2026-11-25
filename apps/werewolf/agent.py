@@ -124,7 +124,10 @@ class AIController:
         })
 
     async def speak(self, game: Game, player: Player, kind: str, prompt: str) -> AsyncIterator[str]:
-        messages = self._messages(game, player, prompts.speech_task(kind, self.s.speech_max_chars))
+        task = prompts.speech_task(kind, self.s.speech_max_chars)
+        if prompts.is_first_night(game) and kind == "wolf_chat":
+            task += "\n" + prompts.FIRST_NIGHT_HINT
+        messages = self._messages(game, player, task)
         parser = SpeechParser()
         first = True
         async for delta in self.llm.stream(
@@ -147,7 +150,10 @@ class AIController:
     async def choose(
         self, game: Game, player: Player, kind: str, prompt: str, options: list[Option], allow_skip: bool
     ) -> int:
-        messages = self._messages(game, player, prompts.choice_task(kind, prompt, options, allow_skip))
+        task = prompts.choice_task(kind, prompt, options, allow_skip)
+        if prompts.is_first_night(game) and kind in ("seer_check", "wolf_kill"):
+            task += "\n" + prompts.FIRST_NIGHT_HINT
+        messages = self._messages(game, player, task)
         text = ""
         for attempt in range(2):
             text = await self.llm.complete(

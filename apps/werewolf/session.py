@@ -24,6 +24,7 @@ from .config import LEVELS, WerewolfSettings
 from .engine import SPEECH_KINDS, Event, Game, Hooks, Option, Player, deal
 from .personas import CASTS, DEFAULT_CAST, HUMAN_COLOR, Cast, Voice
 from .prompts import SKIP_LABELS
+from .record import save_game
 from .roles import Role
 from .scripted import ScriptedController
 
@@ -232,9 +233,22 @@ class WerewolfSession(Hooks):
         for ev in self._playback.values():
             ev.set()
 
+    def _save(self, game: Game) -> None:
+        """Keep a full record of every game (also unfinished ones) for debugging."""
+        if not game.events or not self.s.save_games:
+            return
+        try:
+            path = save_game(game, self.models, cast=self.cast.key, spectate=self.spectate, human_seat=self.human_seat)
+            log.info("game record saved: %s", path)
+        except Exception:  # noqa: BLE001
+            log.exception("could not save the game record")
+
     async def _run(self, game: Game) -> None:
         try:
-            winner = await game.run()
+            try:
+                winner = await game.run()
+            finally:
+                self._save(game)
             await self.send_state()
             await self.send(
                 type="game_over", winner=winner,
