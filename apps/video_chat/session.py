@@ -27,8 +27,10 @@ import time
 from collections.abc import Callable
 from typing import Protocol
 
-from .config import Settings
-from .text import SentenceChunker, clean_for_tts, looks_like_echo, normalize_transcript, speakable_len
+from core.config import Settings
+from core.text import SentenceChunker, clean_for_tts, looks_like_echo, normalize_transcript, speakable_len
+
+from .config import ChatSettings
 
 log = logging.getLogger("session")
 
@@ -46,12 +48,16 @@ class Session:
         llm,
         tts,
         stt_factory: Callable[[Callable[[str, str], None]], object],
+        stt_label: str = "",
+        chat: ChatSettings | None = None,
     ) -> None:
         self.s = settings
+        self.chat = chat or ChatSettings()
         self.transport = transport
         self.llm = llm
         self.tts = tts
         self.stt_factory = stt_factory
+        self.stt_label = stt_label or settings.stt_model
 
         self.history: list[dict] = []
         self.pending_user = ""  # finalized user speech not yet answered
@@ -100,7 +106,7 @@ class Session:
         await self._send(
             type="hello",
             llm=self.llm.label,
-            stt=self.s.stt_model,
+            stt=self.stt_label,
             tts=f"{self.s.tts_model} / {self.s.tts_voice}",
             sample_rate=self.tts.sample_rate,
         )
@@ -161,6 +167,8 @@ class Session:
     async def _handle_stt(self, kind: str, text: str) -> None:
         if kind == "ready":
             await self._send(type="stt_ready")
+        elif kind == "loading":
+            await self._send(type="stt_loading")
         elif kind == "error":
             await self._send(type="error", message=text)
         elif kind == "partial":
@@ -170,7 +178,7 @@ class Session:
             if self._is_echo(heard):
                 return
             await self._send(type="user_partial", text=heard)
-            if speakable_len(heard) >= self.s.barge_in_min_chars:
+            if speakable_len(heard) >= self.chat.barge_in_min_chars:
                 await self._user_speaking()
         elif kind == "final":
             heard = normalize_transcript(text)
@@ -194,7 +202,7 @@ class Session:
             # The user hadn't finished; drop the half-started reply and wait for the rest.
             await self._cancel_turn()
             await self._set_phase("idle")
-        elif self.phase == "speaking" and self.s.barge_in:
+        elif self.phase == "speaking" and self.chat.barge_in:
             await self._barge_in("voice")
 
     async def _barge_in(self, reason: str) -> None:
@@ -237,8 +245,8 @@ class Session:
             await self._send(type="interrupt", turn=self.turn_id)
 
     def _messages(self, user_text: str) -> list[dict]:
-        hist = self.history[-self.s.max_history_messages :]
-        return [{"role": "system", "content": self.s.system_prompt}, *hist, {"role": "user", "content": user_text}]
+        hist = self.history[-self.chat.max_history_messages :]
+        return [{"role": "system", "content": self.chat.system_prompt}, *hist, {"role": "user", "content": user_text}]
 
     async def _run_turn(self, turn: int, user_text: str) -> None:
         t0 = time.monotonic()
@@ -311,6 +319,9 @@ class Session:
             await commit_user()
             self.history.append({"role": "assistant", "content": reply})
             self.last_reply = reply
+            set_context = getattr(self.stt, "set_context", None)
+            if set_context:
+                set_context(reply)
             await self._send(type="assistant_done", turn=turn, text=reply)
             await self._send(type="tts_end", turn=turn)
 

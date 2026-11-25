@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狼人杀</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-phase="setup">
+  <div class="app">
+    <header class="top">
+      <a class="home" href="/" title="所有应用">←</a>
+      <h1>🐺 狼人杀</h1>
+      <div class="phase" id="phase">准备开始</div>
+      <div class="spacer"></div>
+      <div class="me" id="me" hidden></div>
+      <button class="chip-btn" id="ttsBtn" type="button" aria-pressed="true">🔊 语音</button>
+      <button class="chip-btn" id="newBtn" type="button">新的一局</button>
+    </header>
+
+    <main class="table">
+      <section class="seats left" id="seatsL" aria-label="1 到 6 号"></section>
+      <section class="center">
+        <div class="stage" id="stage">
+          <div class="stage-avatar" id="stageAvatar"></div>
+          <div class="stage-name" id="stageName"></div>
+          <div class="stage-caption" id="stageCaption"></div>
+        </div>
+        <div class="log" id="log" aria-live="polite"></div>
+        <div class="action" id="action">
+          <div class="status" id="status">点“开始游戏”。</div>
+        </div>
+      </section>
+      <section class="seats right" id="seatsR" aria-label="7 到 12 号"></section>
+    </main>
+  </div>
+
+  <div class="modal" id="startModal">
+    <div class="sheet">
+      <h2>🐺 狼人杀 · 12 人标准局</h2>
+      <p class="rules">4 狼人 · 4 平民 · 预言家 · 女巫 · 猎人 · 白痴。屠边胜利，第一天竞选警长。<br>
+        你和 11 个 AI 一起玩，每个 AI 有自己的长相、性格和声音。</p>
+      <div class="field">角色组
+        <div class="roles" id="castChoice"></div>
+        <div class="cast-preview" id="castPreview"></div>
+      </div>
+      <div class="field">AI 水平
+        <div class="roles" id="levelChoice"></div>
+        <div class="hint left" id="levelDesc"></div>
+      </div>
+      <label class="field">你的名字 <input id="nameInput" maxlength="8" placeholder="玩家"></label>
+      <div class="field">你的身份
+        <div class="roles" id="roleChoice">
+          <button type="button" data-role="random" class="on">随机</button>
+          <button type="button" data-role="werewolf">狼人</button>
+          <button type="button" data-role="seer">预言家</button>
+          <button type="button" data-role="witch">女巫</button>
+          <button type="button" data-role="hunter">猎人</button>
+          <button type="button" data-role="idiot">白痴</button>
+          <button type="button" data-role="villager">平民</button>
+          <button type="button" data-role="spectate">只观战</button>
+        </div>
+      </div>
+      <label class="field check"><input type="checkbox" id="ttsCheck" checked> 用语音念出发言（建议戴耳机）</label>
+      <button class="primary" id="startBtn" type="button">开始游戏</button>
+      <p class="hint" id="startHint"></p>
+    </div>
+  </div>
+
+  <div class="modal" id="endModal" hidden>
+    <div class="sheet wide">
+      <h2 id="endTitle"></h2>
+      <div class="reveal" id="reveal"></div>
+      <h3>AI 的内心戏</h3>
+      <div class="thought-tabs" id="thoughtTabs"></div>
+      <div class="thoughts" id="thoughts"></div>
+      <div class="end-actions">
+        <button type="button" id="closeEnd">回看对局</button>
+        <button class="primary" type="button" id="againBtn">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

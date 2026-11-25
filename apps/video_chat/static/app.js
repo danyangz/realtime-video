@@ -1,5 +1,5 @@
-import { AudioEngine } from './audio.js';
-import { Avatar } from './avatar.js';
+import { AudioEngine } from '/shared/audio.js';
+import { Avatar } from '/shared/avatar.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,6 +17,8 @@ const avatar = new Avatar($('avatar'), {
   getMicLevel: () => (muted ? 0 : audio.micLevel()),
 });
 if (demo) avatar.setState(demo);
+// For automated tests with a fake microphone: start the call on page load.
+if (new URLSearchParams(location.search).has('autostart')) setTimeout(() => startCall(), 300);
 
 let ws = null;
 let inCall = false;
@@ -52,9 +54,16 @@ function toast(msg, ms = 5000) {
 
 // ------------------------------------------------------------- socket
 
+// This app's socket lives next to its page: /<app>/ws
+function wsUrl() {
+  const u = new URL('ws', location.href);
+  u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+  return u.href;
+}
+
 function connect() {
   return new Promise((resolve, reject) => {
-    const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    const sock = new WebSocket(wsUrl());
     sock.binaryType = 'arraybuffer';
     sock.onopen = () => resolve(sock);
     sock.onerror = () => reject(new Error('无法连接服务器，确认 python -m server 正在运行'));
@@ -89,12 +98,15 @@ function onMessage(ev) {
   const m = JSON.parse(ev.data);
   switch (m.type) {
     case 'hello':
-      $('models').textContent = `LLM：${m.llm}\nTTS：${m.tts}`;
+      $('models').textContent = `识别：${m.stt}\nLLM：${m.llm}\nTTS：${m.tts}`;
       $('models').style.whiteSpace = 'pre-line';
       break;
     case 'fatal':
       toast(m.message, 15000);
       endCall(false);
+      break;
+    case 'stt_loading':
+      $('status').textContent = '加载识别模型…';
       break;
     case 'stt_ready':
       if (inCall) setStatus('listening');

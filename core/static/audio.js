@@ -19,8 +19,8 @@ export class AudioEngine {
     }
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
     await this.ctx.resume();
-    await this.ctx.audioWorklet.addModule('worklets/capture.js');
-    await this.ctx.audioWorklet.addModule('worklets/playback.js');
+    await this.ctx.audioWorklet.addModule(new URL('./worklets/capture.js', import.meta.url));
+    await this.ctx.audioWorklet.addModule(new URL('./worklets/playback.js', import.meta.url));
 
     this.player = new AudioWorkletNode(this.ctx, 'playback', { numberOfInputs: 0, outputChannelCount: [1] });
     this.player.port.onmessage = (e) => {

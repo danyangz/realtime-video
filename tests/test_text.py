@@ -1,4 +1,4 @@
-from server.text import (
+from core.text import (
     SentenceChunker,
     ThinkFilter,
     clean_for_tts,

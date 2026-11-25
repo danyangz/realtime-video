@@ -4,6 +4,9 @@ websockets>=14
 httpx>=0.27
 python-dotenv>=1.0
 zhconv>=1.4
-# dev / scripts
-pytest>=8
 numpy>=1.26
+# Local speech recognition on Apple Silicon (Silero VAD + Qwen3-ASR via MLX)
+onnxruntime>=1.18
+mlx-qwen3-asr>=0.4.4; sys_platform == "darwin" and platform_machine == "arm64"
+# dev
+pytest>=8

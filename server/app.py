@@ -1,88 +1,56 @@
-"""HTTP + WebSocket server: serves the web UI and runs one Session per browser connection."""
+"""The one server: shared services + every registered app.
+
+    /                 app launcher
+    /<slug>/          an app's page (apps/<name>/static)
+    /<slug>/ws ...    an app's routes
+    /shared/          shared frontend code (core/static: audio I/O, worklets)
+"""
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
-import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import ROOT, Settings
-from .llm import LLM
-from .session import Session
-from .stt import TogetherSTT
-from .tts import TogetherTTS
+from apps import APPS
+from core.config import ROOT
+from core.services import Services
 
-log = logging.getLogger("app")
-settings = Settings()
+log = logging.getLogger("server")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.llm = LLM(settings)
-    for p in settings.problems():
+    services = Services()
+    await services.start()
+    app.state.services = services
+    for p in services.settings.problems():
         log.warning("配置问题：%s", p)
-    log.info("LLM=%s  STT=%s  TTS=%s/%s", app.state.llm.label, settings.stt_model, settings.tts_model, settings.tts_voice)
+    log.info("apps: %s | STT=%s", ", ".join(a.slug for a in APPS), services.stt_label)
     yield
-    await app.state.llm.aclose()
+    await services.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-class _WSTransport:
-    def __init__(self, ws: WebSocket) -> None:
-        self.ws = ws
-
-    async def send_text(self, data: str) -> None:
-        await self.ws.send_text(data)
-
-    async def send_bytes(self, data: bytes) -> None:
-        await self.ws.send_bytes(data)
+@app.get("/api/apps")
+def list_apps() -> list[dict]:
+    return [{"slug": a.slug, "title": a.title, "description": a.description, "emoji": a.emoji} for a in APPS]
 
 
-@app.websocket("/ws")
-async def ws_endpoint(ws: WebSocket) -> None:
-    await ws.accept()
-    problems = settings.problems()
-    if problems:
-        await ws.send_text(json.dumps({"type": "fatal", "message": "；".join(problems)}, ensure_ascii=False))
-        await ws.close()
-        return
-
-    tts = TogetherTTS(settings)
-    session = Session(
-        settings,
-        _WSTransport(ws),
-        llm=app.state.llm,
-        tts=tts,
-        stt_factory=lambda on_event: TogetherSTT(settings, on_event),
-    )
-    runner = asyncio.create_task(session.run())
-    try:
-        while not runner.done():
-            msg = await ws.receive()
-            if msg["type"] == "websocket.disconnect":
-                break
-            if msg.get("bytes") is not None:
-                session.on_audio(msg["bytes"])
-            elif msg.get("text"):
-                try:
-                    session.on_client_message(json.loads(msg["text"]))
-                except json.JSONDecodeError:
-                    log.warning("bad client message: %r", msg["text"][:200])
-    except (WebSocketDisconnect, RuntimeError):
-        pass
-    finally:
-        runner.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await runner
-        await tts.aclose()
+def _redirect(slug: str):
+    return lambda: RedirectResponse(f"/{slug}/")
 
 
-# Static UI last, so it doesn't shadow /ws.
-app.mount("/", StaticFiles(directory=ROOT / "web", html=True), name="web")
+for spec in APPS:
+    app.include_router(spec.router, prefix=f"/{spec.slug}")
+    app.add_api_route(f"/{spec.slug}", _redirect(spec.slug), include_in_schema=False)
+    app.mount(f"/{spec.slug}", StaticFiles(directory=spec.static_dir, html=True), name=spec.slug)
+
+app.mount("/shared", StaticFiles(directory=ROOT / "core" / "static"), name="shared")
+app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="home")

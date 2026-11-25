@@ -24,11 +24,11 @@ import numpy as np
 import websockets
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from server.config import Settings  # noqa: E402
-from server.llm import LLM  # noqa: E402
-from server.stt import TogetherSTT  # noqa: E402
-from server.tts import TogetherTTS  # noqa: E402
-from server.text import normalize_transcript  # noqa: E402
+from core.config import Settings  # noqa: E402
+from core.llm import LLM  # noqa: E402
+from core.stt import TogetherSTT  # noqa: E402
+from core.tts import TogetherTTS  # noqa: E402
+from core.text import normalize_transcript  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "out"
 SENTENCE = "你好，我想问一下，今天下午有什么好玩的地方可以去？"
@@ -81,7 +81,8 @@ async def test_tts(s: Settings) -> bytes:
 
 
 async def test_stt(s: Settings, pcm24: bytes) -> None:
-    print(f"\n== STT  {s.stt_model} (language={s.stt_language})")
+    name = f"本地 {s.asr_model}" if s.stt_engine == "local" else f"Together {s.stt_model}"
+    print(f"\n== STT  {name} (language={s.stt_language})")
     pcm16 = resample(pcm24, s.tts_sample_rate, 16000) + b"\x00\x00" * 16000 * 2  # + 2 s silence
     finals: list[str] = []
     ready = asyncio.Event()
@@ -102,9 +103,15 @@ async def test_stt(s: Settings, pcm24: bytes) -> None:
         elif kind == "error":
             print(f"   ✗ {text}")
 
-    stt = TogetherSTT(s, on_event)
+    if s.stt_engine == "local":
+        from core.local_stt import ASREngine, LocalSTT, ensure_silero
+
+        ensure_silero()
+        stt = LocalSTT(s, ASREngine(s), on_event)
+    else:
+        stt = TogetherSTT(s, on_event)
     task = asyncio.create_task(stt.run())
-    await asyncio.wait_for(ready.wait(), 20)
+    await asyncio.wait_for(ready.wait(), 300)  # first local run may download the models
     speech_bytes = len(pcm16) - 16000 * 4
     for i in range(0, len(pcm16), 640):  # 20 ms, real-time pace
         stt.push_audio(pcm16[i : i + 640])

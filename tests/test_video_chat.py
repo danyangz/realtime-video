@@ -4,8 +4,8 @@ import asyncio
 import json
 import struct
 
-from server.config import Settings
-from server.session import Session
+from apps.video_chat.session import Session
+from core.config import Settings
 
 
 class FakeTransport:

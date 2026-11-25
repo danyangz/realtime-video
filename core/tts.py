@@ -97,23 +97,27 @@ class TogetherTTS:
     def sample_rate(self) -> int:
         return self.s.tts_sample_rate
 
-    def _url(self) -> str:
+    def _url(self, voice: str | None = None, model: str | None = None, instructions: str | None = None) -> str:
+        model = model or self.s.tts_model
         params = {
-            "model": self.s.tts_model,
-            "voice": self.s.tts_voice,
+            "model": model,
+            "voice": voice or self.s.tts_voice,
             "response_format": "pcm",
             "sample_rate": self.s.tts_sample_rate,
-            "language": self.s.tts_language,
             # We already split text into sentences ourselves; synthesize each piece right away.
             "segment": "immediate",
         }
-        if self.s.tts_instructions and "qwen3-tts" in self.s.tts_model.lower():
-            params["instructions"] = self.s.tts_instructions
+        if "qwen3-tts" in model.lower():
+            # Kokoro picks the language from the voice name; Qwen3-TTS needs it explicitly.
+            params["language"] = self.s.tts_language
+            instr = self.s.tts_instructions if instructions is None else instructions
+            if instr:
+                params["instructions"] = instr
         return f"{URL}?{urlencode(params)}"
 
-    async def _connect(self):
+    async def _connect(self, url: str | None = None):
         ws = await websockets.connect(
-            self._url(),
+            url or self._url(),
             additional_headers={"Authorization": f"Bearer {self.s.together_api_key}"},
             max_size=None,
             close_timeout=1,
@@ -147,7 +151,12 @@ class TogetherTTS:
                     await _quiet_close(spare.result())
                 self.warm()
 
-    async def open(self) -> TTSStream:
+    async def open(
+        self, voice: str | None = None, model: str | None = None, instructions: str | None = None
+    ) -> TTSStream:
+        """A TTS stream for one utterance. With no arguments, uses the default voice (and the warm spare)."""
+        if voice is not None or model is not None or instructions is not None:
+            return TTSStream(await self._connect(self._url(voice, model, instructions)))
         ws = None
         spare, self._spare = self._spare, None
         if spare is not None:
